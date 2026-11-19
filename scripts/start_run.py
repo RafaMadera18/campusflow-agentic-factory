@@ -1,14 +1,19 @@
+"""Create the run folder for a Change Request.
+
+Usage: python scripts/start_run.py CR-001
+"""
+
 from __future__ import annotations
 
-import json
-import shutil
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))  # lets `python scripts/start_run.py` import factory_app
+
+from factory_app import run_state  # noqa: E402
+
 CR_DIR = ROOT / "change_requests"
-RUNS = ROOT / "runs"
 
 
 def find_change_request(change_id: str) -> Path:
@@ -23,27 +28,10 @@ def main() -> None:
         raise SystemExit("Usage: python scripts/start_run.py CR-001")
     change_id = sys.argv[1].strip().upper()
     source = find_change_request(change_id)
-    run = RUNS / change_id
-    if run.exists():
-        raise SystemExit(f"Run already exists: {run}")
-    run.mkdir(parents=True)
-    shutil.copy2(source, run / "00-change-request.md")
-    state = {
-        "change_id": change_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "status": "INTAKE_PENDING",
-        "human_gates": {
-            "requirements": "PENDING",
-            "plan": "PENDING",
-            "review": "PENDING",
-            "release": "PENDING",
-        },
-        "verification": "NOT_RUN",
-        "review": "NOT_RUN",
-        "security": "NOT_RUN",
-        "iterations": 0,
-    }
-    (run / "factory-state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
+    try:
+        run = run_state.create_run(change_id, source)
+    except run_state.RunAlreadyExistsError as error:
+        raise SystemExit(str(error)) from error
     print(f"Created {run.relative_to(ROOT)}")
 
 

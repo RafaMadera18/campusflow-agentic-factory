@@ -18,6 +18,13 @@ Turn the active Change Request into a bounded intake report.
 Identify requested outcome, relevant requirements/AC, ambiguity/conflict,
 likely repository areas, and recommend PROCEED or HUMAN_CLARIFICATION_REQUIRED.
 Do not design the implementation. Do not modify files.
+
+The last line of the report must be exactly one of these two lines, because the
+factory reads it to decide whether to continue or stop for a human:
+RECOMMENDATION: PROCEED
+RECOMMENDATION: HUMAN_CLARIFICATION_REQUIRED
+Choose HUMAN_CLARIFICATION_REQUIRED whenever the Change Request leaves a business
+rule undefined. Never fill the gap with your own policy.
 """
 
 PLANNER_INSTRUCTION = COMMON_RULES + """
