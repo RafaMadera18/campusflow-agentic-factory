@@ -67,9 +67,23 @@ agents-cli eval run
 
 ```bash
 uv run python scripts/start_run.py CR-001
-uv run python scripts/approve_gate.py CR-001 plan APPROVED "Plan reviewed by Tech Lead"
+uv run python scripts/run_planning.py CR-001
+uv run python scripts/approve_gate.py CR-001 plan APPROVED "Plan reviewed" --by <name> --role tech_lead
 uv run python scripts/show_run.py CR-001
 ```
+
+`run_planning.py` runs Intake and then Planner, saves `01-intake-report.md` and
+`03-implementation-plan.md` under `runs/CR-001/`, and stops at a human gate:
+
+- Clear Change Request: status `AWAITING_PLAN_APPROVAL`. The Coder stays blocked until a
+  human records `APPROVED` with `approve_gate.py` (who, role and reason are mandatory).
+- Ambiguous Change Request (CR-005): status `AWAITING_CLARIFICATION`. The Planner does not
+  run. The Product Owner answers with `approve_gate.py CR-005 requirements APPROVED "<policy>"
+  --by <name> --role product_owner` and `run_planning.py` is run again with that answer.
+- A failed model call (429/503) is retried with backoff. If it still fails, running the
+  script again resumes from the last saved stage instead of repeating Intake.
+
+Code that must wait for a human calls `factory_app.run_state.require_gate_approved(...)`.
 
 ## Student mission
 
