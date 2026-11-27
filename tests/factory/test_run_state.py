@@ -191,15 +191,71 @@ def test_unknown_decisions_and_gates_are_refused(run, runs_dir):
         )
 
 
-def test_gates_not_wired_yet_are_refused_instead_of_faked(run, runs_dir):
-    # review and release belong to later milestones; recording them now would be fake evidence.
-    with pytest.raises(GateError, match="not available yet"):
+def test_review_and_release_gates_require_their_actual_status(run, runs_dir):
+    with pytest.raises(GateError, match="AWAITING_REVIEW_DECISIONS"):
+        run_state.record_decision(
+            run,
+            "review",
+            "APPROVED",
+            "reviewed",
+            decided_by="Ana",
+            role="reviewer",
+            runs_dir=runs_dir,
+        )
+
+
+def test_review_gate_accepts_only_reviewer_and_moves_to_evidence(run, runs_dir):
+    state = run_state.load_state(run, runs_dir)
+    run_state.transition(state, run_state.AWAITING_REVIEW_DECISIONS, "test setup")
+    run_state.save_state(run, state, runs_dir)
+
+    run_state.record_decision(
+        run,
+        "review",
+        "APPROVED",
+        "review complete",
+        decided_by="Ana",
+        role="reviewer",
+        runs_dir=runs_dir,
+    )
+
+    state = run_state.load_state(run, runs_dir)
+    assert state["status"] == run_state.EVIDENCE_CONSOLIDATED
+    evidence = json.loads(
+        (runs_dir / run / "10-human-review-decisions.json").read_text(encoding="utf-8")
+    )
+    assert evidence["role"] == "reviewer"
+
+
+def test_release_gate_accepts_only_release_manager_and_tops_at_merge_ready(run, runs_dir):
+    state = run_state.load_state(run, runs_dir)
+    run_state.transition(state, run_state.AWAITING_RELEASE_DECISION, "test setup")
+    run_state.save_state(run, state, runs_dir)
+
+    run_state.record_decision(
+        run,
+        "release",
+        "APPROVED",
+        "release complete",
+        decided_by="Luis",
+        role="release_manager",
+        runs_dir=runs_dir,
+    )
+
+    state = run_state.load_state(run, runs_dir)
+    assert state["status"] == run_state.READY_FOR_HUMAN_MERGE
+    evidence = json.loads(
+        (runs_dir / run / "15-release-decision.json").read_text(encoding="utf-8")
+    )
+    assert evidence["role"] == "release_manager"
+
+    with pytest.raises(GateError, match="AWAITING_RELEASE_DECISION"):
         run_state.record_decision(
             run,
             "release",
             "APPROVED",
-            "ok",
-            decided_by="Rafa",
+            "release checked",
+            decided_by="Luis",
             role="release_manager",
             runs_dir=runs_dir,
         )

@@ -36,18 +36,40 @@ If ambiguity remains, STOP and request human clarification. Do not write code.
 """
 
 CODER_INSTRUCTION = COMMON_RULES + """
-ROLE: Coder Agent.
-Implement only a human-approved plan.
-The starter intentionally grants no write tool yet. Students must design bounded
-write/edit capability before enabling autonomous implementation.
-Do not self-approve.
+ROLE: Coder Agent (bounded write).
+Implement only the human-approved plan supplied below. Your write tool only accepts .py
+files under campusflow/ and tests/; every other path is refused and you must not try to
+work around it.
+
+Allowed: campusflow/**.py and tests/**.py.
+Forbidden: docs/, runs/, factory_app/, scripts/, .env, .git, configuration or any path
+outside the repository.
+
+Hard limits:
+- Never weaken or delete tests, and never add xfail/skip/xfail markers.
+- Never edit REQUIREMENTS.md or SPEC.md to make the verification pass.
+- Never approve your own work and never run git merge.
+- Business rules stay in campusflow/service.py (API -> Service -> Repository).
+- If the plan is ambiguous, stop and say what is missing instead of inventing policy.
+
+Before reporting, call get_git_diff and check that your change is exactly the intended one.
+End your report with a "CODER REPORT" section listing: files changed, how the plan maps to
+them, and anything a human must decide.
 """
 
 TEST_ANALYST_INSTRUCTION = COMMON_RULES + """
-ROLE: Test Analyst Agent.
-Inspect the Change Request, requirements, diff and tests. Identify missing
-negative/boundary/regression cases and tests that may mask defects. Never claim
-tests passed without deterministic evidence.
+ROLE: Test Analyst Agent (bounded write).
+Your write tool only accepts .py files under tests/; you can never modify campusflow/.
+
+Tasks:
+- Read the Change Request, the plan, the coder report and the current diff.
+- Add missing negative, boundary and regression tests for the changed behavior.
+- Find tests that mask defects (assert-less tests, broad try/except, xfail/skip).
+- Call run_baseline_verification and quote its real output.
+
+Never claim tests passed without deterministic evidence, and never change product code.
+End your report with a "TEST ANALYST REPORT" section with: tests added, gaps remaining and
+the verification output.
 """
 
 REVIEWER_INSTRUCTION = COMMON_RULES + """

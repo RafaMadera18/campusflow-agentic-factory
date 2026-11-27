@@ -33,6 +33,17 @@ PLAN_APPROVED = "PLAN_APPROVED"  # the Coder may start
 PLAN_CHANGES_REQUESTED = "PLAN_CHANGES_REQUESTED"
 PLAN_REJECTED = "PLAN_REJECTED"
 
+# --- Implementation slice (the coding runner moves between these) ---------------------
+CODING_COMPLETE = "CODING_COMPLETE"  # Coder + Test Analyst finished one iteration
+VERIFICATION_PASSED = "VERIFICATION_PASSED"  # deterministic gate is green; review comes next
+VERIFICATION_FAILED = "VERIFICATION_FAILED"  # fix loop (<= MAX_FIX_ATTEMPTS) or stopped run
+
+# --- Review and release slices ---------------------------------------------------------
+AWAITING_REVIEW_DECISIONS = "AWAITING_REVIEW_DECISIONS"
+EVIDENCE_CONSOLIDATED = "EVIDENCE_CONSOLIDATED"
+AWAITING_RELEASE_DECISION = "AWAITING_RELEASE_DECISION"
+READY_FOR_HUMAN_MERGE = "READY_FOR_HUMAN_MERGE"
+
 # --- Human gates ---------------------------------------------------------------------
 DECISIONS = ("APPROVED", "MODIFIED", "REJECTED", "DEFERRED")
 ALL_GATES = ("requirements", "plan", "review", "release")
@@ -69,6 +80,28 @@ GATE_RULES = {
             "APPROVED": PLAN_APPROVED,
             "MODIFIED": PLAN_CHANGES_REQUESTED,
             "REJECTED": PLAN_REJECTED,
+        },
+    ),
+    "review": GateRule(
+        required_status=AWAITING_REVIEW_DECISIONS,
+        allowed_roles=("reviewer",),
+        evidence_file="10-human-review-decisions.json",
+        status_after={
+            "APPROVED": EVIDENCE_CONSOLIDATED,
+            "MODIFIED": CODING_COMPLETE,
+            "REJECTED": CODING_COMPLETE,
+            "DEFERRED": AWAITING_REVIEW_DECISIONS,
+        },
+    ),
+    "release": GateRule(
+        required_status=AWAITING_RELEASE_DECISION,
+        allowed_roles=("release_manager",),
+        evidence_file="15-release-decision.json",
+        status_after={
+            "APPROVED": READY_FOR_HUMAN_MERGE,
+            "MODIFIED": AWAITING_RELEASE_DECISION,
+            "REJECTED": AWAITING_RELEASE_DECISION,
+            "DEFERRED": AWAITING_RELEASE_DECISION,
         },
     ),
 }

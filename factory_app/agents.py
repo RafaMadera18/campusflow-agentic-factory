@@ -9,10 +9,18 @@ from .prompts import (
     SECURITY_INSTRUCTION,
     TEST_ANALYST_INSTRUCTION,
 )
-from .tools import list_repo_files, read_repo_file, run_baseline_verification, write_run_evidence
+from .tools import (
+    get_git_diff,
+    list_repo_files,
+    read_scoped_file,
+    run_baseline_verification,
+    write_coder_file,
+    write_run_evidence,
+    write_test_file,
+)
 
 GEMINI_MODEL = "gemini-3.8-flash"
-READ_TOOLS = [list_repo_files, read_repo_file]
+READ_TOOLS = [list_repo_files, read_scoped_file]
 
 intake_agent = LlmAgent(
     name="IntakeAgent",
@@ -32,21 +40,27 @@ planner_agent = LlmAgent(
     output_key="implementation_plan",
 )
 
+# Least privilege is enforced by the tool list below: the Coder physically cannot write
+# docs/, runs/, factory_app/, scripts/ or .env because those tools are never handed to it.
 coder_agent = LlmAgent(
     name="CoderAgent",
     model=GEMINI_MODEL,
-    description="Implements an approved plan. Write tooling is intentionally absent in starter.",
-    instruction=CODER_INSTRUCTION,
-    tools=READ_TOOLS,
+    description="Implements a human-approved plan inside campusflow/ and tests/ only.",
+    instruction=CODER_INSTRUCTION + "\n\nApproved implementation plan:\n{implementation_plan}",
+    tools=[*READ_TOOLS, write_coder_file, get_git_diff],
     output_key="coder_report",
 )
 
 test_analyst_agent = LlmAgent(
     name="TestAnalystAgent",
     model=GEMINI_MODEL,
-    description="Finds test gaps and interprets deterministic verification evidence.",
-    instruction=TEST_ANALYST_INSTRUCTION,
-    tools=[*READ_TOOLS, run_baseline_verification],
+    description="Adds tests under tests/ only and interprets deterministic evidence.",
+    instruction=(
+        TEST_ANALYST_INSTRUCTION
+        + "\n\nApproved implementation plan:\n{implementation_plan}"
+        + "\n\nCoder report:\n{coder_report}"
+    ),
+    tools=[*READ_TOOLS, write_test_file, run_baseline_verification],
     output_key="test_analysis",
 )
 
